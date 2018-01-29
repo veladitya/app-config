@@ -1,0 +1,35 @@
+# 1. Spring Common Configuration
+spring:
+    profiles: common
+    datasource:
+        url: jdbc:h2:mem:itinerary_mem;DB_CLOSE_ON_EXIT=FALSE
+        username: sa
+        driverClassName: org.h2.Driver
+    h2:
+       console:
+           enabled: true        
+    jpa:
+       generate-ddl: true
+       hibernate:
+           ddl-auto: create-drop
+
+# 1.1 LOG BACK Configuration
+logging:
+    logfile:
+        name: itinerary_profile
+        extension: log
+    auditfile:
+        name: itinerary_profile_audit
+        extension: log  
+    max_file_index: 10
+    level:
+        org.springframework.web: ERROR
+        com.fedex: INFO
+        org.hibernate.SQL: INFO
+    file:
+       max-history: 20
+       max-size: 20MB
+    pattern:
+        dateformat: yyyy-MM-dd HH:mm:ss.SSS
+        console: "%d{yyyy-MM-dd HH:mm:ss.SSS} - %msg%n"
+        file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n" 

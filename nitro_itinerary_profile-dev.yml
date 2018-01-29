@@ -1,0 +1,7 @@
+## 2. Spring DEV Configuration
+spring:
+    profiles: dev
+server:
+    port: 8090
+banner:
+    location: classpath:banners/dev_banner.txt

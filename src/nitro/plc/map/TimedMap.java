@@ -1,6 +1,8 @@
 package nitro.plc.map;
 
+import java.util.Map;
 import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
@@ -21,10 +23,10 @@ public final class TimedMap<K, V> {
 	private final ConcurrentMap<K, ExpiredObject<K, V>> map = new ConcurrentHashMap<K, ExpiredObject<K, V>>();
 	private final Lock writeLock = new ReentrantLock();
 	private Long defaultLifeTime = 3000L;
-	private final Timer timer = new Timer("TimedMap Timer", true);
-
+	private final Timer timer = new Timer("TimedMap Timer", true);	
+	
 	private EventExpiredManager expiredEventManager;
-
+	
 	public TimedMap(EventExpiredManager expiredEventManager) {
 		this(expiredEventManager, 300L);
 	}
@@ -32,6 +34,97 @@ public final class TimedMap<K, V> {
 	public TimedMap(EventExpiredManager expiredEventManager, Long ttl) {
 		defaultLifeTime = ttl;
 		this.expiredEventManager = expiredEventManager;
+	}
+
+	/**
+	 * A wrapper for a underlying object that associates a {@link TimerTask}
+	 * instance with the object.
+	 * 
+	 * @author 5288873 
+	 *
+	 * @param <K>
+	 *            The key type K
+	 * @param <V>
+	 *            The value type V
+	 */
+	@SuppressWarnings("hiding")
+	class ExpiredObject<K, V> implements Callback<V> {
+		private final V value;
+		private final ExpiryTask<K> task;
+		private final long ttl;
+
+		public ExpiredObject(K key, V value) {
+			this(key, value, defaultLifeTime);
+		}
+
+		public ExpiredObject(K key, V value, long ttl) {
+			this.value = value;
+			this.task = new ExpiryTask<K>(key);
+			this.ttl = ttl;
+			timer.schedule(this.task, ttl);
+		}
+
+		public ExpiryTask<K> getTask() {
+			return task;
+		}
+
+		public V getValue() {
+			return value;
+		}
+
+		public long getTtl() {
+			return ttl;
+		}
+
+		@Override
+		public void execute(V value) {			
+			expiredEventManager.sendException(value);
+		}
+	}
+
+	/**
+	 * A visitor interface.
+	 */
+	public static interface Callback<V> {
+		public void execute(V v);
+	}
+
+	/**
+	 * A {@link TimerTask} implementation that removes its associated entry
+	 * (identified by a key K) from the internal {@link Map}.
+	 * 
+	 * @author 5288873
+	 *
+	 * @param <K>
+	 *            The object key
+	 */
+	@SuppressWarnings("hiding")
+	class ExpiryTask<K> extends TimerTask {
+		private final K key;
+
+		public ExpiryTask(K key) {
+			this.key = key;
+		}
+
+		public K getKey() {
+			return key;
+		}
+
+		@SuppressWarnings({ "unlikely-arg-type", "unchecked" })
+		@Override
+		public void run() {
+			System.out.println("Expiring element with key [" + key + "]");
+			final TimedMap<K, V>.ExpiredObject<K, V> object;
+			try {
+				writeLock.lock();
+				if (map.containsKey(key)) {
+					object = (TimedMap<K, V>.ExpiredObject<K, V>) map.remove(getKey());	
+					object.execute(object.getValue());
+				}					
+			} finally {
+				writeLock.unlock();
+			}
+		}
 	}
 
 	/**
@@ -49,7 +142,7 @@ public final class TimedMap<K, V> {
 	public void put(K key, V value, long expiry) {
 		try {
 			writeLock.lock();
-			if (expiry < 0) {
+			if(expiry < 0) {
 				expiry = defaultLifeTime;
 			}
 			final ExpiredObject<K, V> object = map.putIfAbsent(key, new ExpiredObject<K, V>(key, value, expiry));
@@ -121,7 +214,7 @@ public final class TimedMap<K, V> {
 		final ExpiredObject<K, V> object;
 		try {
 			writeLock.lock();
-			// System.out.println("Removing element with key:" + key);
+			//System.out.println("Removing element with key:" + key);
 			object = map.remove(key);
 			if (object != null)
 				object.getTask().cancel();

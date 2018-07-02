@@ -85,7 +85,7 @@ public final class TimedMap<K, V> {
 	/**
 	 * A visitor interface.
 	 */
-	public static interface Callback<V> {
+	public  interface Callback<V> {
 		public void execute(V v);
 	}
 

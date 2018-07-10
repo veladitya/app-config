@@ -1,10 +1,9 @@
 package nitro.plc.manager;
 
-public class EventExpiredManager<V> {
+public class EventExpiredManager {
 
-	public void sendException(V value) {
-		// TODO Auto-generated method stub
-		
+	public void sendException(Object value) {
+		System.out.println(value);
 	}
 
 }
